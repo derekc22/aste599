@@ -1,0 +1,61 @@
+[MASTER]
+# Load the following plugins (if any)
+load-plugins=
+
+[MESSAGES CONTROL]
+# Disable trivial stylistic warnings
+disable=
+    C0111,  # missing-docstring
+    C0301,  # line-too-long
+    C0302,  # too-many-lines
+    C0326,  # bad-whitespace
+    C0330,  # bad-continuation
+    C0103,  # invalid-name
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    W0311,  # bad-indentation
+    C0325,  # superfluous-parens
+    ; R0201,  # no-self-use
+    R0903,  # too-few-public-methods
+    R0911,  # too-many-return-statements
+    R0912,  # too-many-branches
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    R0915,  # too-many-statements
+    C0411,  # wrong-import-order
+    C0412,  # ungrouped-imports
+    C0413,  # wrong-import-position
+    W0622,  # redefined-builtin
+    C0303,  # trailing-whitespace
+    C0305,  # trailing-newlines
+    C0304,  # missing-final-newline
+    C0200,  # consider-using-enumerate
+    W0105,  # pointless-string-statement
+
+
+[FORMAT]
+# You can still configure format settings, but they won't raise warnings
+max-line-length=120
+indent-string='    '
+indent-after-paren=4
+
+[DESIGN]
+# Raise limits so design warnings are less likely to trigger
+max-args=10
+max-locals=20
+max-returns=10
+max-branches=15
+max-statements=50
+max-public-methods=20
+max-parents=10
+max-attributes=15
+min-public-methods=0
+max-bool-expr=10
+
+[REPORTS]
+# Do not display the full report
+reports=no
+
+[LOGGING]
+logging-format-style=old

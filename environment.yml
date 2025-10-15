@@ -1,0 +1,10 @@
+name: aste599
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - matplotlib
+  - scipy
+  - sympy
+  - mujoco
