@@ -701,7 +701,7 @@ def q2f():
 
 if __name__ == "__main__":
     os.makedirs("plots", exist_ok=True)
-    # q2b()
-    # q2c()
-    # q2e()
+    q2b()
+    q2c()
+    q2e()
     q2f()
