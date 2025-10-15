@@ -423,7 +423,7 @@ def q2e():
     for k in range(N):
         uk = U_sol[:, k]
         
-        # apply uk open-loop
+        # apply uk open-loop with disturbance wk
         xk_1 = xk + dt * f_np(xk, uk) + w[k, :]
         
         # add to trajectory
@@ -639,7 +639,7 @@ def q2f():
             # take the first control in the computed solution
             uk = U_sol[:, 0]
             
-            # apply uk closed-loop
+            # apply uk closed-loop with disturbance wk
             xk_1 = xk + dt * f_np(xk, uk) + w[k, :]
             
             # add xk+1 to trajectory
