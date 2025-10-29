@@ -3,19 +3,22 @@
 		<geom contype="0" friction="1 0.1 0.1" rgba="0.7 0.7 0 1"/>
 	</default>
 	<option gravity="0 0 -1" integrator="RK4" timestep="0.0001"/>
-	<asset>
-	    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
-	</asset>
-  	<visual>
-		<headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
-		<rgba haze="0.15 0.25 0.35 1" />
-	    <global offheight="2160" offwidth="3840"/>
-    	<quality offsamples="8"/>
+
+    <asset>
+      <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+      <texture type="2d" name="floor" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300" />
+      <material name="floor" texture="floor" texuniform="true" texrepeat="5 5" reflectance="0.5" />
+    </asset>
+
+	<visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
 	</visual>
+
 	<worldbody>
     	<light name="spotlight0" mode="targetbodycom" target="pole_base" pos="0 0 10" cutoff="60" />
 		<light name="spotlight1" mode="targetbodycom" target="pole_base" pos="0.5 0 10" cutoff="60" />
-		
+		<!-- <geom name="terrain" type="plane" material="floor" size="10 10 0.1" pos="0 0 0" conaffinity="1" condim="4" friction="1.0 0.005 0.0001"/> -->
+
 		<!-- pole hinge pivot -->
 		<body name="pole_base" pos="0 0 0">
 
