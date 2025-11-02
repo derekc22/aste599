@@ -31,7 +31,7 @@ class GridWorld {
 
         int size;
 
-        coord s0; // inital actor state
+        coord s0; // inital agent state
         coord terminal_state;
 
         enum action_space {left, right, up, down, COUNT};
@@ -217,8 +217,6 @@ class GridWorld {
         void inference(int MAX_EPISODES, bool verbose){
 
             std::filesystem::create_directory("data");
-            std::string fname_r = "data/reward.csv";
-            std::ofstream file_r(fname_r);
 
             int LOG_FREQ = 50;
         
@@ -228,21 +226,9 @@ class GridWorld {
 
                 auto [s, tr] = run([this](coord arg) {return greedy(arg);});
 
-                if (i % LOG_FREQ == 0 || i == MAX_EPISODES - 1) {
-                    std::string fname_q = "data/qtable_" + std::to_string(i) + ".csv";
-                    std::ofstream file_q(fname_q);
-                    // IO and Data operations
-                    std::vector<std::vector<double>> Qtable_Grid = convertGreedyQtableToGrid();
-                    for (const auto& row : Qtable_Grid){
-                        for (const auto& k : row) {
-                            file_q << k;
-                            if (k < size - 1) file_q << ",";  // comma delimiter
-                        }
-                        file_q << "\n";  // new line for next row
-                    }
-                    file_q.close();
-                }
-
+                // IO operations
+                if (i % LOG_FREQ == 0 || i == MAX_EPISODES - 1) saveQtableGridToFile(i);
+                    
                 total_reward_data[i] = tr;
 
                 // printGreedyQtableToGrid();
@@ -250,7 +236,29 @@ class GridWorld {
                 clearGrid(s);
             }
 
+            // IO operations
+            saveTotalRewardsToFile(total_reward_data);
+        }
 
+
+        void saveQtableGridToFile(int episode){
+
+            std::string fname_q = "data/qtable_" + std::to_string(episode) + ".csv";
+            std::ofstream file_q(fname_q);
+            std::vector<std::vector<double>> Qtable_Grid = convertGreedyQtableToGrid();
+            for (const auto& row : Qtable_Grid){
+                for (const auto& k : row) {
+                    file_q << k;
+                    if (k < size - 1) file_q << ",";  // comma delimiter
+                }
+                file_q << "\n";  // new line for next row
+            }
+            file_q.close();
+        }
+
+        void saveTotalRewardsToFile(std::vector<int> total_reward_data){
+            std::string fname_r = "data/rewards.csv";
+            std::ofstream file_r(fname_r);
             for (const auto& m : total_reward_data){
                 file_r << m << ",";
             }
@@ -258,32 +266,32 @@ class GridWorld {
         }
 
 
-    void printGreedyQtableToGrid(){
-        std::cout << endl;
-        std::cout << "greedy action Q table" << std::endl;
-        std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
-        std::vector<std::vector<double>> Qtable_Grid = convertGreedyQtableToGrid();
-        for (const auto& row : Qtable_Grid){
-            for (const auto& i : row) {
-                std::cout << std::setw(8) << std::fixed << std::setprecision(3) << i << " ";
+        void printGreedyQtableGrid(){
+            std::cout << endl;
+            std::cout << "greedy action Q table" << std::endl;
+            std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
+            std::vector<std::vector<double>> Qtable_Grid = convertGreedyQtableToGrid();
+            for (const auto& row : Qtable_Grid){
+                for (const auto& i : row) {
+                    std::cout << std::setw(8) << std::fixed << std::setprecision(3) << i << " ";
+                }
+                std::cout << std::endl;
             }
-            std::cout << std::endl;
+            std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
         }
-        std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
-    }
 
-    std::vector<std::vector<double>> convertGreedyQtableToGrid(){
+        std::vector<std::vector<double>> convertGreedyQtableToGrid(){
 
-        std::vector<std::vector<double>> Q_tableGrid = std::vector<std::vector<double>>(size, std::vector<double>(size, 0));
+            std::vector<std::vector<double>> Q_tableGrid = std::vector<std::vector<double>>(size, std::vector<double>(size, 0));
 
-        for (int j = 0; j <= size-1; j++){
-            for (int i = 0; i <= size-1; i++) {
-                auto [_, Q_max] = getQmax(coord(i, j));
-                Q_tableGrid[size-1-j][i] = Q_max;
+            for (int j = 0; j <= size-1; j++){
+                for (int i = 0; i <= size-1; i++) {
+                    auto [_, Q_max] = getQmax(coord(i, j));
+                    Q_tableGrid[size-1-j][i] = Q_max;
+                }
             }
+            return Q_tableGrid;
         }
-        return Q_tableGrid;
-    }
 };
 
 
@@ -299,18 +307,10 @@ int main(){
     GridWorld env(agent);
 
     // env.train(500);
-    env.inference(500, true);
+    env.inference(500, false);
     // env.printQtable();
     // env.mapQtableToGrid();
     // env.printGreedyQtableToGrid();
-
-    
-    // auto [s1, r1, b1] = env.step(env.s0, env.right);
-    // auto [s2, r2, b2] = env.step(s1, env.up);
-    // auto [s3, r3, b3] = env.step(s2, env.up);
-    // auto [s4, r4, b4] = env.step(s3, env.up);
-    // auto [s5, r5, b5] = env.step(s4, env.right);
-
 
     // env.printGrid();
 
