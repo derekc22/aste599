@@ -1,6 +1,7 @@
 import numpy as np
 from sympy import symbols, Matrix, diff, pprint, expand, lambdify
 import matplotlib.pyplot as plt
+import os
 
 # Scalars
 x, y = symbols("x y")
@@ -55,11 +56,13 @@ def plot_grads(x_sol, y_sol):
     plt.suptitle(f"J(x, y) = {str(J)}\n\nh1(x, y) = {str(h1)} = 0, h2(x, y) = {str(h2)} = 0\n\n", fontsize=10)
 
     # plt.show()
-    plt.savefig(f"q1j_[{x_sol}, {y_sol}].pdf")
+    plt.savefig(f"hw2/plots/q1j_[{x_sol}, {y_sol}].pdf")
     plt.close()
 
 
 if __name__ == "__main__":
+    os.makedirs("hw2/plots", exist_ok=True)
+    
     # sol_h1 = [1.1, 0.1]
     # plot_grads(*sol_h1)
     

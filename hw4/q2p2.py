@@ -1,6 +1,7 @@
 import numpy as np
 from pydrake.all import LeafSystem, BasicVector, DiagramBuilder, Simulator, DynamicProgrammingOptions, FittedValueIteration
 import matplotlib.pyplot as plt
+import os
 
 
 m = 1.0
@@ -105,6 +106,7 @@ plt.imshow(
     aspect="auto"
 )
 plt.colorbar(label="V")
-plt.savefig("plots/q2p2.pdf")
+os.makedirs("hw4/plots", exist_ok=True)
+plt.savefig("hw4/plots/q2p2.pdf")
 
 plt.close()

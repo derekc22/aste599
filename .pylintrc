@@ -34,6 +34,7 @@ disable=
     W0105,  # pointless-string-statement
     W0401,  # wildcard-import
     C0410,  # multiple-imports
+    W0101,  # unreachable
 
 
 [FORMAT]

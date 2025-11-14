@@ -1,6 +1,7 @@
 import numpy as np
 from sympy import symbols, lambdify
 import matplotlib.pyplot as plt
+import os
 
 # Scalars
 x, y = symbols("x y")
@@ -31,10 +32,11 @@ def main():
     ax.legend()
     
     # plt.show()
-    plt.savefig(f"q1i.pdf")
+    plt.savefig(f"hw2/plots/q1i.pdf")
     plt.close()
 
 
 if __name__ == "__main__":
+    os.makedirs("hw2/plots", exist_ok=True)
     main()
 

@@ -1,6 +1,7 @@
 import numpy as np
 from sympy import symbols, Matrix, diff, pprint, expand, lambdify
 import matplotlib.pyplot as plt
+import os
 
 # Scalars
 x1, x2 = symbols("x1 x2")
@@ -72,7 +73,7 @@ def gradient_descent(J, x0, name, lims):
             plt.tight_layout()
             
             # plt.show()
-            plt.savefig(f"{name}.pdf")
+            plt.savefig(f"hw2/plots/{name}.pdf")
             plt.close()
             
             return
@@ -88,6 +89,7 @@ def gradient_descent(J, x0, name, lims):
 
 
 if __name__ == "__main__":
+    os.makedirs("hw2/plots", exist_ok=True)
     
     # # Question 2a.iii)
     J_a = 3*x1**2 + x2**2

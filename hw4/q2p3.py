@@ -177,5 +177,6 @@ if __name__ == "__main__":
     plt.title("Convergence to the origin under the optimal policy")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig("plots/q2p3.pdf")
+    os.makedirs("hw4/plots", exist_ok=True)
+    plt.savefig("hw4/plots/q2p3.pdf")
     plt.close()

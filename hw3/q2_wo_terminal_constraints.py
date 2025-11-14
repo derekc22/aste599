@@ -17,7 +17,7 @@ def q2b():
     t_max = N * dt
 
     # define state, control dim
-    nv = 4
+    nx = 4
     nu = 2
     
     # define δ, a control constraints
@@ -28,9 +28,9 @@ def q2b():
     xf_val = np.array([5, 3, 0, 0])
 
     # define cost matrices
-    Q = ca.DM(np.eye(nv))
+    Q = ca.DM(np.eye(nx))
     R = ca.DM(np.eye(nu))
-    H = ca.DM(np.eye(nv))
+    H = ca.DM(np.eye(nx))
 
     # define dynamics (forward/explicit euler integration)
     def f(x, u):
@@ -49,15 +49,15 @@ def q2b():
     opti = ca.Opti()
 
     # define state, control
-    X = opti.variable(nv, N+1)
+    X = opti.variable(nx, N+1)
     U = opti.variable(nu, N)
 
     # declare, set x0
-    x0 = opti.parameter(nv)
+    x0 = opti.parameter(nx)
     opti.set_value(x0, x0_val)
 
     # declare, set xf
-    xf = opti.parameter(nv)
+    xf = opti.parameter(nx)
     opti.set_value(xf, xf_val)
 
     
@@ -139,7 +139,7 @@ def q2b():
     
     plt.suptitle(f'optimal cost, J* = {Jstar:.2f}')
     plt.tight_layout()
-    plt.savefig("plots/q2b.pdf")
+    plt.savefig("hw3/plots/q2b.pdf")
     plt.close()
 
 
@@ -150,7 +150,7 @@ def q2c():
     L = 1
     
     # define state, control dim
-    nv = 4
+    nx = 4
     nu = 2
     
     # define δ, a control constraints
@@ -161,9 +161,9 @@ def q2c():
     xf_val = np.array([5, 3, 0, 0])
 
     # define cost matrices
-    Q = ca.DM(np.eye(nv))
+    Q = ca.DM(np.eye(nx))
     R = ca.DM(np.eye(nu))
-    H = ca.DM(np.eye(nv))
+    H = ca.DM(np.eye(nx))
 
     # define dynamics (forward/explicit euler integration)
     def f(x, u):
@@ -191,15 +191,15 @@ def q2c():
         opti = ca.Opti()
 
         # define state, control
-        X = opti.variable(nv, N+1)
+        X = opti.variable(nx, N+1)
         U = opti.variable(nu, N)
 
         # declare, set x0
-        x0 = opti.parameter(nv)
+        x0 = opti.parameter(nx)
         opti.set_value(x0, x0_val)
 
         # declare, set xf
-        xf = opti.parameter(nv)
+        xf = opti.parameter(nx)
         opti.set_value(xf, xf_val)
 
         
@@ -289,7 +289,7 @@ def q2c():
         
         plt.suptitle(f'optimal cost J* = {Jstar:.2f}, dt={dt}, N={N}')
         plt.tight_layout()
-        plt.savefig(f"plots/q2c_dt{dt}_N{N}.pdf")
+        plt.savefig(f"hw3/plots/q2c_dt{dt}_N{N}.pdf")
         plt.close()
 
 
@@ -305,7 +305,7 @@ def q2e():
     t_max = N * dt
 
     # define state, control dim
-    nv = 4
+    nx = 4
     nu = 2
     
     # define δ, a control constraints
@@ -316,9 +316,9 @@ def q2e():
     xf_val = np.array([5, 3, 0, 0])
 
     # define cost matrices
-    Q = ca.DM(np.eye(nv))
+    Q = ca.DM(np.eye(nx))
     R = ca.DM(np.eye(nu))
-    H = ca.DM(np.eye(nv))
+    H = ca.DM(np.eye(nx))
 
     # define dynamics (forward/explicit euler integration)
     def f(x, u):
@@ -337,15 +337,15 @@ def q2e():
     opti = ca.Opti()
 
     # define state, control
-    X = opti.variable(nv, N+1)
+    X = opti.variable(nx, N+1)
     U = opti.variable(nu, N)
 
     # declare, set x0
-    x0 = opti.parameter(nv)
+    x0 = opti.parameter(nx)
     opti.set_value(x0, x0_val)
 
     # declare, set xf
-    xf = opti.parameter(nv)
+    xf = opti.parameter(nx)
     opti.set_value(xf, xf_val)
 
     
@@ -410,12 +410,12 @@ def q2e():
 
 
     # pre-sample N Gaussian disturbances
-    w = np.random.multivariate_normal(np.zeros(nv), np.diag([0.01]*nv), N) # shape (N, nv)
+    w = np.random.multivariate_normal(np.zeros(nx), np.diag([0.01]*nx), N) # shape (N, nx)
 
 
 
     # store the open-loop trajectory for plotting
-    x_ol = np.zeros((N+1, nv))
+    x_ol = np.zeros((N+1, nx))
     x_ol[0] = x0_val
 
     xk = x0_val
@@ -482,7 +482,7 @@ def q2e():
     
     plt.suptitle(f'optimal cost, J* = {Jstar:.2f}')
     plt.tight_layout()
-    plt.savefig("plots/q2e.pdf")
+    plt.savefig("hw3/plots/q2e.pdf")
     plt.close()
 
 
@@ -498,7 +498,7 @@ def q2f():
     t_max = N * dt
 
     # define state, control dim
-    nv = 4
+    nx = 4
     nu = 2
     
     # define δ, a control constraints
@@ -509,9 +509,9 @@ def q2f():
     xf_val = np.array([5, 3, 0, 0])
 
     # define cost matrices
-    Q = ca.DM(np.eye(nv))
+    Q = ca.DM(np.eye(nx))
     R = ca.DM(np.eye(nu))
-    H = ca.DM(np.eye(nv))
+    H = ca.DM(np.eye(nx))
 
     # define dynamics (forward/explicit euler integration)
     def f(x, u):
@@ -528,8 +528,8 @@ def q2f():
 
     # pre-sample N Gaussian disturbances
     disturbances = ["low", "high"]
-    w_low = np.random.multivariate_normal(np.zeros(nv), np.diag([0.001]*nv), N) # shape (N, nv)
-    w_high = np.random.multivariate_normal(np.zeros(nv), np.diag([0.1]*nv), N) # shape (N, nv)
+    w_low = np.random.multivariate_normal(np.zeros(nx), np.diag([0.001]*nx), N) # shape (N, nx)
+    w_high = np.random.multivariate_normal(np.zeros(nx), np.diag([0.1]*nx), N) # shape (N, nx)
 
 
 
@@ -539,14 +539,14 @@ def q2f():
         opti = ca.Opti()
 
         # define state, control
-        X = opti.variable(nv, N+1)
+        X = opti.variable(nx, N+1)
         U = opti.variable(nu, N)
         
         # declare x0
-        x0 = opti.parameter(nv)
+        x0 = opti.parameter(nx)
         
         # declare, set xf
-        xf = opti.parameter(nv)
+        xf = opti.parameter(nx)
         opti.set_value(xf, xf_val)
         
 
@@ -618,7 +618,7 @@ def q2f():
 
 
         # store the closed-loop trajectory for plotting
-        x_cl = np.zeros((N+1, nv))
+        x_cl = np.zeros((N+1, nx))
         x_cl[0] = x0_val
         
         # store the closed-loop control for plotting
@@ -695,12 +695,12 @@ def q2f():
 
         plt.suptitle(f'stoch. dynamics, {d} wk')
         plt.tight_layout()
-        plt.savefig(f"plots/q2f_{d}.pdf")
+        plt.savefig(f"hw3/plots/q2f_{d}.pdf")
         plt.close()
 
 
 if __name__ == "__main__":
-    os.makedirs("plots", exist_ok=True)
+    os.makedirs("hw3/plots", exist_ok=True)
     q2b()
     q2c()
     q2e()

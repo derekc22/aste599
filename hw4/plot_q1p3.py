@@ -5,7 +5,7 @@ import os
 import glob
 
 
-os.makedirs("plots", exist_ok=True)
+os.makedirs("hw4/plots", exist_ok=True)
 
 
 
@@ -19,7 +19,7 @@ plt.grid()
 
 plt.title("# convergence steps vs episode")
 plt.tight_layout()
-plt.savefig("plots/ep_len.pdf")
+plt.savefig("hw4/plots/ep_len.pdf")
 plt.close()
 
 
@@ -34,7 +34,7 @@ plt.grid()
 
 plt.title("total reward vs episode")
 plt.tight_layout()
-plt.savefig("plots/tot_reward.pdf")
+plt.savefig("hw4/plots/tot_reward.pdf")
 plt.close()
 
 
@@ -69,7 +69,7 @@ for f in qtable_files:
     plt.title(f"episode: {episode}")
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.savefig(f"plots/qtable_{episode}.pdf")
+    plt.savefig(f"hw4/plots/qtable_{episode}.pdf")
     plt.close()
 
 
