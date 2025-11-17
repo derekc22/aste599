@@ -2,18 +2,18 @@ import numpy as np
 import casadi as ca
 from plot import plot_t, plot_xyz
 
-def dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, obs, Q, R, H, term, dyn):
+def dmpc_decentralized(Z, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, obs, Q, R, H, term, dyn):
 
     t_max = N * dt
 
     # disturbances, per agent
-    w = [np.random.multivariate_normal(np.zeros(nx), np.diag([sigma] * nx), N) for _ in range(M)]
+    w = [np.random.multivariate_normal(np.zeros(nx), np.diag([sigma] * nx), N) for _ in range(Z)]
 
-    pred_X = np.zeros((M, nx, N + 1))
-    pred_U = np.zeros((M, nu, N))
+    pred_X = np.zeros((Z, nx, N + 1))
+    pred_U = np.zeros((Z, nu, N))
 
     # build a local OCP for one agent, with other agents' XYZ as parameters
-    def build_agent_opti(m):
+    def build_agent_opti(z):
         opti = ca.Opti()
         X = opti.variable(nx, N + 1)
         U = opti.variable(nu, N)
@@ -21,7 +21,7 @@ def dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, 
         xf = opti.parameter(nx, 1)
 
         # set final state
-        opti.set_value(xf, xf_val[m, :].reshape((nx, 1)))
+        opti.set_value(xf, xf_val[z, :].reshape((nx, 1)))
         
         # control bounds and initial condition constraint
         opti.subject_to(X[:, 0] == x0)
@@ -51,9 +51,9 @@ def dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, 
             opti.subject_to(xN == xf) # terminal constraint, xf
                 
         # push initial interpolated predictions for warm-starting
-        x0_m = x0_val[m, :].reshape(nx, 1)
-        xf_m = xf_val[m, :].reshape(nx, 1)
-        pred_X[m] = np.hstack([x0_m + (k / float(N)) * (xf_m - x0_m) for k in range(N + 1)])
+        x0_z = x0_val[z, :].reshape(nx, 1)
+        xf_z = xf_val[z, :].reshape(nx, 1)
+        pred_X[z] = np.hstack([x0_z + (k / float(N)) * (xf_z - x0_z) for k in range(N + 1)])
 
         opti.minimize(J)
         opts = {
@@ -63,16 +63,16 @@ def dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, 
         return {"opti": opti, "X": X, "U": U, "x0": x0, "xf": xf, "J" : J}
 
     # build agents and set goals
-    agents = [build_agent_opti(m) for m in range(M)]
+    agents = [build_agent_opti(z) for z in range(Z)]
     
     def shift_pred(X):
         return np.hstack([X[:, 1:], X[:, -1:]])
 
     # logs for plotting
-    x_cl = np.zeros((M, nx, N + 1), dtype=float)
+    x_cl = np.zeros((Z, nx, N + 1), dtype=float)
     x_cl[:, :, 0] = x0_val.copy()
-    u_cl = np.zeros((M, nu, N), dtype=float)
-    J_cl = np.zeros((M, N))
+    u_cl = np.zeros((Z, nu, N), dtype=float)
+    J_cl = np.zeros((Z, N))
 
     Xk = x0_val.copy()
 
@@ -80,40 +80,40 @@ def dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, 
     for k in range(N):
 
         # set initial-state parameters
-        for m in range(M):
+        for z in range(Z):
             
-            opti = agents[m]["opti"]
-            X = agents[m]["X"]
-            U = agents[m]["U"]
-            J = agents[m]["J"]
+            opti = agents[z]["opti"]
+            X = agents[z]["X"]
+            U = agents[z]["U"]
+            J = agents[z]["J"]
             
-            xk = Xk[m].reshape(nx, 1)
-            opti.set_value(agents[m]["x0"], xk)
-            opti.set_initial(X, pred_X[m]) # warm start
-            opti.set_initial(U, pred_U[m]) # warm start
+            xk = Xk[z].reshape(nx, 1)
+            opti.set_value(agents[z]["x0"], xk)
+            opti.set_initial(X, pred_X[z]) # warm start
+            opti.set_initial(U, pred_U[z]) # warm start
             
             sol = opti.solve()
             X_opt = sol.value(X)
             U_opt = sol.value(U)
             
-            pred_X[m] = shift_pred(X_opt)  # update shared predictions
-            pred_U[m] = shift_pred(U_opt)  # update shared predictions
+            pred_X[z] = shift_pred(X_opt)  # update shared predictions
+            pred_U[z] = shift_pred(U_opt)  # update shared predictions
 
 
             uk = U_opt[:, 0].reshape((nu, 1))
 
             # apply first control, advance true states, shift warm starts, log
-            xk_1 = xk + dt * f_np(xk, uk) #+ w[m][k, :].reshape(nx, 1)
+            xk_1 = xk + dt * f_np(xk, uk) #+ w[z][k, :].reshape(nx, 1)
 
-            x_cl[m, :, k + 1] = xk_1.flatten()
-            u_cl[m, :, k] = uk.flatten()
+            x_cl[z, :, k + 1] = xk_1.flatten()
+            u_cl[z, :, k] = uk.flatten()
             
-            Xk[m] = xk_1.flatten()
+            Xk[z] = xk_1.flatten()
             
-            J_cl[m, k] = sol.value(J)
+            J_cl[z, k] = sol.value(J)
 
             
     # plot
     J_cl_avg = np.mean(J_cl)
-    plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, f"{dyn}_decentralized")
-    plot_xyz(M, x_cl, x0_val, xf_val, J_cl_avg, obs, f"{dyn}_decentralized")
+    plot_t(t_max, N, Z, x_cl, u_cl, J_cl_avg, f"{dyn}_decentralized")
+    plot_xyz(Z, x_cl, x0_val, xf_val, J_cl_avg, obs, f"{dyn}_decentralized")

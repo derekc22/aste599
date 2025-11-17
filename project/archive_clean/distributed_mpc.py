@@ -2,20 +2,20 @@ import numpy as np
 import casadi as ca
 from plot import plot_t, plot_xyz
 
-def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, obs, Q, R, H, term, mode, dyn):
+def dmpc_distributed(Z, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, sigma, obs, Q, R, H, term, mode, dyn):
     
     assert mode in ("gauss-seidel", "jacobi"), f"Invalid mode: {mode}"
 
     t_max = N * dt
 
     # disturbances, per agent
-    w = [np.random.multivariate_normal(np.zeros(nx), np.diag([sigma] * nx), N) for _ in range(M)]
+    w = [np.random.multivariate_normal(np.zeros(nx), np.diag([sigma] * nx), N) for _ in range(Z)]
 
-    pred_X = np.zeros((M, nx, N + 1))
-    pred_U = np.zeros((M, nu, N))
+    pred_X = np.zeros((Z, nx, N + 1))
+    pred_U = np.zeros((Z, nu, N))
 
     # build a local OCP for one agent, with other agents' XYZ as parameters
-    def build_agent_opti(m):
+    def build_agent_opti(z):
         opti = ca.Opti()
         X = opti.variable(nx, N + 1)
         U = opti.variable(nu, N)
@@ -23,7 +23,7 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
         xf = opti.parameter(nx, 1)
 
         # set final state
-        opti.set_value(xf, xf_val[m, :].reshape((nx, 1)))
+        opti.set_value(xf, xf_val[z, :].reshape((nx, 1)))
         
         # control bounds and initial condition constraint
         opti.subject_to(X[:, 0] == x0)
@@ -36,7 +36,7 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
             opti.subject_to((X[0, :] - xo) ** 2 + (X[1, :] - yo) ** 2 + (X[2, :] - zo) ** 2 >= ro ** 2)
 
         # other agents' predicted positions over horizon
-        XYZ_others = [opti.parameter(3, N + 1) for _ in range(M - 1)]
+        XYZ_others = [opti.parameter(3, N + 1) for _ in range(Z - 1)]
         
         # build objective function
         J = 0
@@ -50,8 +50,8 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
             opti.subject_to(X[:, k + 1] == x_next)
 
             # collision avoidance with other agents' broadcast predictions
-            for XYZ_m in XYZ_others:
-                opti.subject_to(ca.sumsqr(X[0:3, k] - XYZ_m[:, k]) >= d_min ** 2)
+            for XYZ_z in XYZ_others:
+                opti.subject_to(ca.sumsqr(X[0:3, k] - XYZ_z[:, k]) >= d_min ** 2)
 
         # terminal cost
         xN = X[:, N]
@@ -60,9 +60,9 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
             opti.subject_to(xN == xf) # terminal constraint, xf
 
         # push initial interpolated predictions for warm-starting
-        x0_m = x0_val[m, :].reshape(nx, 1)
-        xf_m = xf_val[m, :].reshape(nx, 1)
-        pred_X[m] = np.hstack([x0_m + (k / float(N)) * (xf_m - x0_m) for k in range(N + 1)])
+        x0_z = x0_val[z, :].reshape(nx, 1)
+        xf_z = xf_val[z, :].reshape(nx, 1)
+        pred_X[z] = np.hstack([x0_z + (k / float(N)) * (xf_z - x0_z) for k in range(N + 1)])
 
         opti.minimize(J)
         opts = {
@@ -72,25 +72,25 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
         return {"opti": opti, "X": X, "U": U, "x0": x0, "xf": xf, "XYZ_others": XYZ_others, "J" : J}
 
     # build agents and set goals
-    agents = [build_agent_opti(m) for m in range(M)]
+    agents = [build_agent_opti(z) for z in range(Z)]
     
     def shift_pred(X):
         return np.hstack([X[:, 1:], X[:, -1:]])
 
     # helpers
-    def set_XYZ_others(m):
+    def set_XYZ_others(z):
         i = 0
-        for j in range(M):
-            if j == m:
+        for j in range(Z):
+            if j == z:
                 continue
-            agents[m]["opti"].set_value(agents[m]["XYZ_others"][i], pred_X[j][0:3, :])
+            agents[z]["opti"].set_value(agents[z]["XYZ_others"][i], pred_X[j][0:3, :])
             i += 1
 
     # logs for plotting
-    x_cl = np.zeros((M, nx, N + 1), dtype=float)
+    x_cl = np.zeros((Z, nx, N + 1), dtype=float)
     x_cl[:, :, 0] = x0_val.copy()
-    u_cl = np.zeros((M, nu, N), dtype=float)
-    J_cl = np.zeros((M, N))
+    u_cl = np.zeros((Z, nu, N), dtype=float)
+    J_cl = np.zeros((Z, N))
 
     Xk = x0_val.copy()
 
@@ -98,47 +98,47 @@ def dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, si
     for k in range(N):
 
         if mode == "jacobi":
-            for m in range(M):
-                set_XYZ_others(m)
+            for z in range(Z):
+                set_XYZ_others(z)
 
         # set initial-state parameters
-        for m in range(M):
+        for z in range(Z):
             
             if mode == "gauss-seidel":
-                set_XYZ_others(m)
+                set_XYZ_others(z)
             
-            opti = agents[m]["opti"]
-            X = agents[m]["X"]
-            U = agents[m]["U"]
-            J = agents[m]["J"]
+            opti = agents[z]["opti"]
+            X = agents[z]["X"]
+            U = agents[z]["U"]
+            J = agents[z]["J"]
             
-            xk = Xk[m].reshape(nx, 1)
-            opti.set_value(agents[m]["x0"], xk)
-            opti.set_initial(X, pred_X[m]) # warm start
-            opti.set_initial(U, pred_U[m]) # warm start
+            xk = Xk[z].reshape(nx, 1)
+            opti.set_value(agents[z]["x0"], xk)
+            opti.set_initial(X, pred_X[z]) # warm start
+            opti.set_initial(U, pred_U[z]) # warm start
             
             sol = opti.solve()
             X_opt = sol.value(X)
             U_opt = sol.value(U)
             
-            pred_X[m] = shift_pred(X_opt)  # update shared predictions
-            pred_U[m] = shift_pred(U_opt)  # update shared predictions
+            pred_X[z] = shift_pred(X_opt)  # update shared predictions
+            pred_U[z] = shift_pred(U_opt)  # update shared predictions
 
 
             uk = U_opt[:, 0].reshape((nu, 1))
 
             # apply first control, advance true states, shift warm starts, log
-            xk_1 = xk + dt * f_np(xk, uk) #+ w[m][k, :].reshape(nx, 1)
+            xk_1 = xk + dt * f_np(xk, uk) #+ w[z][k, :].reshape(nx, 1)
 
-            x_cl[m, :, k + 1] = xk_1.flatten()
-            u_cl[m, :, k] = uk.flatten()
+            x_cl[z, :, k + 1] = xk_1.flatten()
+            u_cl[z, :, k] = uk.flatten()
             
-            Xk[m] = xk_1.flatten()
+            Xk[z] = xk_1.flatten()
             
-            J_cl[m, k] = sol.value(J)
+            J_cl[z, k] = sol.value(J)
 
             
     # plot
     J_cl_avg = np.mean(J_cl)
-    plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, f"{dyn}_distributed", mode)
-    plot_xyz(M, x_cl, x0_val, xf_val, J_cl_avg, obs, f"{dyn}_distributed", mode)
+    plot_t(t_max, N, Z, x_cl, u_cl, J_cl_avg, f"{dyn}_distributed", mode)
+    plot_xyz(Z, x_cl, x0_val, xf_val, J_cl_avg, obs, f"{dyn}_distributed", mode)

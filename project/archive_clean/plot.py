@@ -3,7 +3,7 @@ import numpy as np
 import math
 import os
 
-def plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, fname, qualifier=""):
+def plot_t(t_max, N, Z, x_cl, u_cl, J_cl_avg, fname, qualifier=""):
 
     os.makedirs("project/plots", exist_ok=True)
 
@@ -32,8 +32,8 @@ def plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, fname, qualifier=""):
         c = i % cols
         ax = axs[r, c]
 
-        for m in range(M):
-            ax.plot(t_x, x_cl[m, i, :], label=f'agent {m}')
+        for z in range(Z):
+            ax.plot(t_x, x_cl[z, i, :], label=f'agent {z}')
 
         ax.set_xlabel('t [s]')
         ax.set_ylabel(f'x[{i}]')
@@ -60,8 +60,8 @@ def plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, fname, qualifier=""):
         c = i % cols
         ax = axs[r, c]
 
-        for m in range(M):
-            ax.step(t_u, u_cl[m, i, :], where='post', label=f'agent {m}')
+        for z in range(Z):
+            ax.step(t_u, u_cl[z, i, :], where='post', label=f'agent {z}')
 
         ax.set_xlabel('t [s]')
         ax.set_ylabel(f'u[{i}]')
@@ -79,7 +79,7 @@ def plot_t(t_max, N, M, x_cl, u_cl, J_cl_avg, fname, qualifier=""):
 
 
 
-def plot_xyz(M, x_cl, x0_val, xf_val, J_cl_avg, obs, fname, qualifier=""):
+def plot_xyz(Z, x_cl, x0_val, xf_val, J_cl_avg, obs, fname, qualifier=""):
 
     os.makedirs("project/plots", exist_ok=True)
 
@@ -87,15 +87,14 @@ def plot_xyz(M, x_cl, x0_val, xf_val, J_cl_avg, obs, fname, qualifier=""):
     ax = fig.add_subplot(111, projection='3d')
 
     # trajectories
-    for m in range(M):
-        x = x_cl[m, 0, :]
-        y = x_cl[m, 1, :]
-        z = x_cl[m, 2, :]
+    for z in range(Z):
+        x = x_cl[z, 0, :]
+        y = x_cl[z, 1, :]
+        zcoord = x_cl[z, 2, :]
 
-        line, = ax.plot3D(x, y, z, label=f"agent {m}", marker="o", linestyle="-")#, markersize=3)
-        color = line.get_color()
-        ax.scatter(x0_val[m, 0], x0_val[m, 1], x0_val[m, 2], c=color, marker=".", s=200, edgecolors="black")
-        ax.scatter(xf_val[m, 0], xf_val[m, 1], xf_val[m, 2], c=color, marker="*", s=300, edgecolors="black")
+        ax.plot3D(x, y, zcoord, label=f'agent {z}')
+        ax.scatter(x0_val[z, 0], x0_val[z, 1], x0_val[z, 2], c='g')
+        ax.scatter(xf_val[z, 0], xf_val[z, 1], xf_val[z, 2], c='r')
 
     # draw all obstacles
     u = np.linspace(0, 2 * np.pi, 40)

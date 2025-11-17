@@ -51,6 +51,21 @@ def eul2rotm_zyx(yaw, pitch, roll):
 # PRESETS
 # =========================================================================
 
+
+# simulation / MPC settings
+N = 40
+dt = 0.05
+
+# number of drones
+M = 10
+
+# safety distance for MPC
+d_min = 0.2
+
+# state and control dimensions
+nx = 12       # [p(3), euler ZYX (3), v(3), wb(3)]
+nu = 4        # rotor thrusts F1..F4
+
 # geometry
 d = 0.2        # [m] arm length
 
@@ -61,60 +76,40 @@ Iyyb = 0.01    # [kg m^2]
 Izzb = 0.05    # [kg m^2]
 
 # initial conditions
-p0 = np.array([0.5, 0.5, 1.0])        # [m]
 v0 = np.array([0, 0, 0])       # [m/s]
-
-# ZYX Euler angles [yaw, pitch, roll]
-euler0 = np.array([0, 0, 0])  # [rad]
-
+euler0 = np.array([0, 0, 0]) # ZYX Euler angles [yaw, pitch, roll]  # [rad]
 wb0 = np.array([0, 0, 0])       # [rad/s]
+x0_val = np.hstack([np.random.uniform(-10, 10, (M, 2)), np.random.uniform(0, 10, (M, 1)), np.tile(np.hstack([euler0, v0, wb0]), (M, 1))])
 
-# simulation / MPC settings
-N = 40
-dt = 0.1
+# target conditions
+vf = np.zeros(3)
+eulerf = np.array([0.0, 0.0, 0.0])
+wbf = np.zeros(3)
+xf_val = np.hstack([np.random.uniform(-10, 10, (M, 2)), np.random.uniform(0, 10, (M, 1)), np.tile(np.hstack([eulerf, vf, wbf]), (M, 1))])
 
-# number of drones
-Z = 1
-
-# safety distance for MPC
-d_min = 0.2
-
-# state and control dimensions
-nx = 18       # [p(3), R(9), v(3), wb(3)]
-nu = 4        # rotor thrusts F1..F4
 
 # input bounds (thrust along +z_b, per rotor)
 F_max = 20.0   # [N] choose something reasonable
 
 # number of obstacles
-no = 0
+no = 5
 obs = np.hstack([np.random.uniform(-10, 10, (no, 2)), 10*np.ones((no, 1)), np.random.uniform(1, 5, (no, 1))])
 
-p_target = np.array([2.0, 2.0, 2.0])
-R_target = np.eye(3)
-v_target = np.zeros(3)
-wb_target = np.zeros(3)
-
-init_spacing = 0.5
+# init_spacing = 0.5
 
 # cost matrices
 Q = ca.DM([
     50, 50, 50,          # position
-    0, 0, 0,    # rotation R
-    0, 0, 0,
-    0, 0, 0,
+    0, 0, 0,             # euler angles (yaw, pitch, roll)
     1, 1, 1,             # linear velocity
     0.1, 0.1, 0.1        # angular velocity
 ])
-# Q = ca.DM([
-#     50, 50, 50,          # position
-#     1e-3, 1e-3, 1e-3,    # rotation R
-#     1e-3, 1e-3, 1e-3,    # rotation R
-#     1e-3, 1e-3, 1e-3,
-#     1e-3, 1e-3, 1e-3,
-#     1, 1, 1,             # linear velocity
-#     0.1, 0.1, 0.1        # angular velocity
-# ])
+Q = ca.DM([
+    50, 50, 50,          # position
+    1e-3, 1e-3, 1e-3,    # euler angles
+    1, 1, 1,             # linear velocity
+    0.1, 0.1, 0.1        # angular velocity
+])
 Q = ca.diag(Q)
 R = ca.DM(np.eye(nu))
 H = 10.0 * Q
@@ -126,31 +121,7 @@ H = 10.0 * Q
 
 U_lim = [(0, F_max), (0, F_max), (0, F_max), (0, F_max)]
 
-
 R0 = eul2rotm_zyx(euler0[0], euler0[1], euler0[2])
-
-# build one-drone state
-x0_single = np.hstack([p0, R0.reshape(-1), v0, wb0])
-
-# choose a simple target: higher hover, level, zero rates
-xf_single = np.hstack([p_target, R_target.reshape(-1), v_target, wb_target])
-
-# stack initial / final for Z drones (just offsets in x)
-x0_val = np.zeros((Z, nx))
-xf_val = np.zeros((Z, nx))
-
-for i in range(Z):
-    offset = np.array([init_spacing*i, 0.0, 0.0])
-
-    x0_i = x0_single.copy()
-    x0_i[0:3] = p0 + offset
-
-    xf_i = xf_single.copy()
-    xf_i[0:3] = p_target + offset
-
-    x0_val[i, :] = x0_i
-    xf_val[i, :] = xf_i
-
 
 # inertia matrices
 Ib_np = np.diag([Ixxb, Iyyb, Izzb])
@@ -181,99 +152,179 @@ r4 = ca.DM(r4_np)
 
 def f(x, u):
     """
-    CasADi version MATLAB odefun, but with rotor forces as control.
-
-    x: 18x1, ordered as [p(3); vec(R)(9); v(3); wb(3)]
-    u: 4x1, scalar thrust for each rotor along body +z.
+    Quadrotor dynamics, CasADi, column-vector math.
+    x: 12x1, u: 4x1  ->  dx: 12x1
     """
-    p = x[0:3]
-    R = ca.reshape(x[3:12], 3, 3)
-    v = x[12:15]
-    wb = x[15:18]
+    # unpack
+    yaw   = x[3]
+    pitch = x[4]
+    roll  = x[5]
+    v     = x[6:9]      # 3x1
+    wb    = x[9:12]     # 3x1
+    p_b, q_b, r_b = wb[0], wb[1], wb[2]
 
-    # rotor forces (body frame)
+    # rotor forces in body frame
     F1b = ca.vertcat(0, 0, u[0])
     F2b = ca.vertcat(0, 0, u[1])
     F3b = ca.vertcat(0, 0, u[2])
     F4b = ca.vertcat(0, 0, u[3])
 
-    # R_dot = R * skew(wb)
-    R_dot = R @ skew_casadi(wb)
+    # rotation R = Rz(yaw) * Ry(pitch) * Rx(roll)
+    cy, sy = ca.cos(yaw),   ca.sin(yaw)
+    cp, sp = ca.cos(pitch), ca.sin(pitch)
+    cr, sr = ca.cos(roll),  ca.sin(roll)
+
+    Rz = ca.vertcat(
+        ca.hcat([cy, -sy, 0]),
+        ca.hcat([sy,  cy, 0]),
+        ca.hcat([0,   0,  1]),
+    )
+    Ry = ca.vertcat(
+        ca.hcat([ cp, 0, sp]),
+        ca.hcat([ 0,  1, 0]),
+        ca.hcat([-sp, 0, cp]),
+    )
+    Rx = ca.vertcat(
+        ca.hcat([1, 0, 0]),
+        ca.hcat([0, cr, -sr]),
+        ca.hcat([0, sr,  cr]),
+    )
+    R = Rz @ Ry @ Rx
+
+    # Euler-rate mapping ZYX
+    tan_theta = ca.tan(pitch)
+    sec_theta = 1.0 / ca.cos(pitch)
+    roll_dot  = p_b + sr * tan_theta * q_b + cr * tan_theta * r_b
+    pitch_dot = cr * q_b - sr * r_b
+    yaw_dot   = sr * sec_theta * q_b + cr * sec_theta * r_b
+
+    # cross for 3x1 columns
+    def cross(a, b):
+        return ca.vertcat(
+            a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0],
+        )
+
+    # torques from lever arms, no yaw drag torque
+    tau = (cross(r1, F1b)
+         + cross(r2, F2b)
+         + cross(r3, F3b)
+         + cross(r4, F4b)
+         - cross(wb, Ib @ wb))
 
     # angular acceleration
-    tau = (cross_casadi(r1, F1b)
-         + cross_casadi(r2, F2b)
-         + cross_casadi(r3, F3b)
-         + cross_casadi(r4, F4b)
-         - cross_casadi(wb, Ib @ wb))
+    wb_dot = Ib_inv @ tau                      # 3x1
 
-    wb_dot = Ib_inv @ tau
+    # translational acceleration in world
+    Fb_total = F1b + F2b + F3b + F4b           # 3x1
+    F_world  = R @ Fb_total                    # 3x1
+    g_col    = ca.DM([[0.0], [0.0], [-g_val]]) # 3x1
+    v_dot    = F_world / m + g_col             # 3x1
 
-    # total force in world frame
-    Fb_total = F1b + F2b + F3b + F4b
-    F_world = R @ Fb_total
-
-    v_dot = F_world / m + ca.DM(g_vec)
-
+    # state derivative, order matches the state
     dx = ca.vertcat(
-        v,                      # p_dot
-        ca.reshape(R_dot, 9, 1),
+        v,
+        ca.vertcat(yaw_dot, pitch_dot, roll_dot),
         v_dot,
-        wb_dot
+        wb_dot,
     )
-
     return dx
+
+
+
 
 
 def f_np(x, u):
     """
-    Numpy version of the same dynamics, used by MPC for forward Euler.
-
-    x: shape (18,) or (18,1)
-    u: shape (4,) or (4,1)
-    returns dx: shape (18,1)
+    Quadrotor dynamics, NumPy, column-vector math.
+    x: (12,1), u: (4,1)  ->  dx: (12,1)
     """
-    x = np.array(x, dtype=float).reshape(-1)
-    u = np.array(u, dtype=float).reshape(-1)
+    # unpack using column indexing
+    yaw   = x[3][0]
+    pitch = x[4][0]
+    roll  = x[5][0]
+    v     = x[6:9]          # (3,1)
+    wb    = x[9:12]         # (3,1)
+    p_b, q_b, r_b = wb[0][0], wb[1][0], wb[2][0]
 
-    p = x[0:3]
-    R = x[3:12].reshape((3, 3))
-    v = x[12:15]
-    wb = x[15:18]
+    # rotor forces in body frame, 3x1 columns
+    F1b = np.array([[0.0], [0.0], [u[0, 0]]])
+    F2b = np.array([[0.0], [0.0], [u[1, 0]]])
+    F3b = np.array([[0.0], [0.0], [u[2, 0]]])
+    F4b = np.array([[0.0], [0.0], [u[3, 0]]])
 
-    F1b = np.array([0.0, 0.0, u[0]])
-    F2b = np.array([0.0, 0.0, u[1]])
-    F3b = np.array([0.0, 0.0, u[2]])
-    F4b = np.array([0.0, 0.0, u[3]])
+    # rotation R = Rz(yaw) * Ry(pitch) * Rx(roll)
+    cy, sy = np.cos(yaw),   np.sin(yaw)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cr, sr = np.cos(roll),  np.sin(roll)
 
-    R_dot = R @ skew_np(wb)
+    Rz = np.array([[cy, -sy, 0.0],
+                   [sy,  cy, 0.0],
+                   [0.0, 0.0, 1.0]])
+    Ry = np.array([[ cp, 0.0, sp],
+                   [0.0, 1.0, 0.0],
+                   [-sp, 0.0, cp]])
+    Rx = np.array([[1.0, 0.0, 0.0],
+                   [0.0,  cr, -sr],
+                   [0.0,  sr,  cr]])
+    R = Rz @ Ry @ Rx
 
-    tau = (np.cross(r1_np, F1b)
-         + np.cross(r2_np, F2b)
-         + np.cross(r3_np, F3b)
-         + np.cross(r4_np, F4b)
-         - np.cross(wb, Ib_np @ wb))
+    # Euler-rate mapping ZYX
+    tan_theta = np.tan(pitch)
+    sec_theta = 1.0 / np.cos(pitch)
+    roll_dot  = p_b + sr * tan_theta * q_b + cr * tan_theta * r_b
+    pitch_dot = cr * q_b - sr * r_b
+    yaw_dot   = sr * sec_theta * q_b + cr * sec_theta * r_b
 
-    wb_dot = Ib_inv_np @ tau
+    # cross for 3x1 columns
+    def cross(a, b):
+        ax, ay, az = a[0, 0], a[1, 0], a[2, 0]
+        bx, by, bz = b[0, 0], b[1, 0], b[2, 0]
+        return np.array([[ay*bz - az*by],
+                         [az*bx - ax*bz],
+                         [ax*by - ay*bx]])
 
-    Fb_total = F1b + F2b + F3b + F4b
-    F_world = R @ Fb_total
+    # arm vectors as 3x1 columns
+    r1c = np.array([[ r1_np[0]], [ r1_np[1]], [ r1_np[2]]])
+    r2c = np.array([[ r2_np[0]], [ r2_np[1]], [ r2_np[2]]])
+    r3c = np.array([[ r3_np[0]], [ r3_np[1]], [ r3_np[2]]])
+    r4c = np.array([[ r4_np[0]], [ r4_np[1]], [ r4_np[2]]])
 
-    v_dot = F_world / m + g_vec
+    # torques from lever arms, no yaw drag torque
+    tau = (cross(r1c, F1b)
+         + cross(r2c, F2b)
+         + cross(r3c, F3b)
+         + cross(r4c, F4b)
+         - cross(wb, Ib_np @ wb))
 
-    dx = np.zeros(18, dtype=float)
-    dx[0:3]   = v
-    dx[3:12]  = R_dot.reshape(9)
-    dx[12:15] = v_dot
-    dx[15:18] = wb_dot
+    # angular acceleration
+    wb_dot = Ib_inv_np @ tau                 # (3,1)
 
-    return dx.reshape((18, 1))
+    # translational acceleration in world
+    Fb_total = F1b + F2b + F3b + F4b         # (3,1)
+    F_world  = R @ Fb_total                  # (3,1)
+    g_col    = np.array([[0.0], [0.0], [-g_val]])
+    v_dot    = F_world / m + g_col           # (3,1)
+
+    # state derivative, order matches the state
+    dx = np.vstack([
+        v,
+        np.array([[yaw_dot], [pitch_dot], [roll_dot]]),
+        v_dot,
+        wb_dot,
+    ])
+    return dx  # (12,1)
+
+
+
+
 
 # =========================================================================
 # MPC CALLS
 # =========================================================================
 
-dmpc_distributed(Z, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "gauss-seidel", "drone")
-dmpc_distributed(Z, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "jacobi", "drone")
-dmpc_decentralized(Z, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "drone")
-dmpc_centralized(Z, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "drone")
+dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "gauss-seidel", "drone")
+# dmpc_distributed(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "jacobi", "drone")
+# dmpc_decentralized(M, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "drone")
+# dmpc_centralized(M, d_min, dt, N, nx, nu, U_lim, x0_val, xf_val, f, f_np, 0, obs, Q, R, H, False, "drone")
