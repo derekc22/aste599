@@ -62,9 +62,10 @@ class GridWorld {
                 Q_table = doubleGrid(n_states, std::vector<double>(n_actions, 0.0));
 
                 grid[terminal_state.first][terminal_state.second] = "A";
-        }; 
+        };
 
-        // GridWorld(Actor agent) : GridWorld(10, 9, 0, 0, 9, 9, agent) {};
+
+        GridWorld(Actor agent) : GridWorld(10, 10, 0, 0, 9, 9, agent) {};
 
 
         void printGrid() const{
@@ -72,7 +73,7 @@ class GridWorld {
             std::cout << "grid world" << std::endl;
             std::cout << "-------------------------------------" << std::endl;
 
-            for (int j = size_y-1; j > 0; j--){
+            for (int j = size_y-1; j >= 0; j--){
                 for (int i = 0; i < size_x; i++){
                     std::cout << grid[i][j] << "   ";
                 }
@@ -81,10 +82,12 @@ class GridWorld {
             std::cout << "-------------------------------------" << std::endl;
         }
   
+
         void clearGrid(coord s){
             grid[s.first][s.second] = "-";
             grid[terminal_state.first][terminal_state.second] = "A";
         }
+
 
         void updateGrid(coord s, coord s_next) {
             clearGrid(s);
@@ -101,13 +104,13 @@ class GridWorld {
                     if (s.first > 0) s.first -= 1;
                     break;
                 case right:
-                    if (s.first < size_x-1) s.first += 1;
+                    if (s.first < size_x - 1) s.first += 1;
                     break;
                 case up:
                     if (s.second > 0) s.second -= 1;
                     break;
                 case down:
-                    if (s.second < size_y-1) s.second += 1;
+                    if (s.second < size_y - 1) s.second += 1;
                     break;
                 default:
                     std::cout << "invalid action" << std::endl;
@@ -132,6 +135,7 @@ class GridWorld {
 
             return std::make_tuple(a_max, Q_max);
         }
+
 
         int epsilonGreedy(coord s){
 
@@ -171,11 +175,11 @@ class GridWorld {
             int total_reward = 0;
             int episode_length = 0;
 
-            int MAX_STEPS = 10000000;
+            int MAX_STEPS = 1000;
 
             while (!done && episode_length < MAX_STEPS) {
 
-                a = policy(s); 
+                a = policy(s);
 
                 auto [s_next, r, _done] = step(s, a);
                 done = _done;
@@ -217,7 +221,7 @@ class GridWorld {
                 total_reward_data[i] = tr;
                 episode_len_data[i] = ep_len;
 
-                if (verbose) printGrid(); printGreedyQtableGrid();
+                if (verbose) { printGrid(); printGreedyQtableGrid(); }
                 clearGrid(s);
             }
 
@@ -226,15 +230,14 @@ class GridWorld {
             saveVectorToFile(episode_len_data, "episode_len");
         }
 
-        void inference(int MAX_EPISODES, bool verbose){
+
+        void inference(bool verbose){
         
-            for (int i = 0; i < MAX_EPISODES; i++){
+            auto [s, _, __] = run([this](coord arg) {return greedy(arg);});
 
-                auto [s, _, __] = run([this](coord arg) {return greedy(arg);});
+            if (verbose) { printGrid(); printGreedyQtableGrid(); }
+            clearGrid(s);
 
-                if (verbose) printGrid(); printGreedyQtableGrid();
-                clearGrid(s);
-            }
         }
 
 
@@ -244,7 +247,7 @@ class GridWorld {
             std::ofstream file_q(fname_q);
             doubleGrid Qtable_Grid = convertGreedyQtableToGrid();
 
-            for (int j = size_y-1; j > 0; j--){
+            for (int j = size_y-1; j >= 0; j--){
                 for (int i = 0; i < size_x; i++){
                     file_q << Qtable_Grid[i][j];
                     if (i < size_x - 1) file_q << ",";
@@ -274,7 +277,7 @@ class GridWorld {
             std::cout << "greedy action Q table" << std::endl;
             std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
 
-            for (int j = size_y-1; j > 0; j--){
+            for (int j = size_y-1; j >= 0; j--){
                 for (int i = 0; i < size_x; i++){
                     std::cout << std::setw(8) << std::fixed << std::setprecision(3) << Qtable_Grid[i][j] << " ";
                 }
@@ -283,19 +286,6 @@ class GridWorld {
             std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
         }
 
-
-            // std::cout << endl;
-            // std::cout << "greedy action Q table" << std::endl;
-            // std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
-            // doubleGrid Qtable_Grid = convertGreedyQtableToGrid();
-            // for (const auto& row : Qtable_Grid){
-            //     for (const auto& i : row) {
-            //         std::cout << std::setw(8) << std::fixed << std::setprecision(3) << i << " ";
-            //     }
-            //     std::cout << std::endl;
-            // }
-            // std::cout << "-----------------------------------------------------------------------------------------" << std::endl;
-        // }
 
         doubleGrid convertGreedyQtableToGrid(){
 
@@ -318,9 +308,8 @@ class GridWorld {
 
 int main(){
 
-    Actor agent;
-
-    // GridWorld env(agent);
+    Actor agent(0.1);
+    // Actor agent();
 
     int size_x = 10;
     int size_y = 10;
@@ -330,11 +319,10 @@ int main(){
     int yA = size_y - 1;
 
     GridWorld env(size_x, size_y, x0, y0, xA, yA, agent);
+    // GridWorld env(agent);
 
-
-    env.train(500, true);
-    env.inference(500, true);
-    env.printGreedyQtableGrid();
+    env.train(1000, false);
+    env.inference(true);
 
 
 
